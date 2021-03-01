@@ -1,46 +1,57 @@
-const express = require('express');
-const path = require('path');
-
-const {notes} = require('../db/db.json');
-
+const express = require("express");
+const PORT = process.env.PORT || 3001;
 const app = express();
-const PORT = 3001;
+const fs = require("fs");
+const path = require("path");
+
+const htmlRoutes = require('./routes/htmlRoutes');
+let notesArr = fs.readFileSync("./db/db.json", "utf8");
 
 
-// Sets up the Express app to handle data parsing
+// Middleware
+app.use(express.static("public"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Routes
-
-app.get('/notes', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public' , 'notes.html'));
+// gets notesArr from data to display on page
+app.get("/api/notes", (req, res) => {
+    notesArr = fs.readFileSync("./db/db.json", "utf8");
+    res.json(JSON.parse(notesArr));
 });
 
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public' , 'index.html'));
-});
-
-
-app.get('/api/notes', (req, res) => {
-    return res.json(notes)
-});
-
-// post
-app.post('/api/notes', (req, res) => {
+// saves note into db/db.json
+app.post("/api/notes", (req, res) => {
     const newNote = req.body;
-  
-    newNotes.noteId = newNotes.name.replace(/\s+/g, "").toLowerCase()
-    console.log(newNote);
-  
-    notes.push(newNote);
-  
-    res.json(newNote);
-  });
+    newNote.id = notesArr.length + "-" + Math.floor(Math.random() * 10);
 
-  // Listener
-  //================================
+    notesArr = JSON.parse(notesArr);
+    notesArr.push(newNote);
 
-  app.listen(PORT, () => {
-      console.log(`App listening on PORT ${PORT}`);
-  });
+    fs.writeFileSync(
+        path.join(__dirname, "./db/db.json"),
+        JSON.stringify(notesArr, null, 2)
+    );
+
+    res.json(notesArr);
+});
+
+// deletes notes from db/db.json
+app.delete("/api/notes/:id", (req, res) => {
+    notesArr = JSON.parse(notesArr);
+    const updatedNotesArr = notesArr.filter((deletedNote) => deletedNote.id !== req.params.id);
+
+    fs.writeFileSync("./db/db.json", JSON.stringify(updatedNotesArr));
+
+    res.json(updatedNotesArr);
+});
+
+app.use('/', htmlRoutes);
+
+// in case route is not found
+app.use((req, res) => {
+    res.sendStatus(404).end();
+});
+
+app.listen(PORT, () => {
+    console.log(`Server now on port ${PORT}`);
+});
